@@ -64,7 +64,7 @@ instance.prototype.init = function () {
 	self.getOutletData();
 	self.setupInterval();
 
-	self.actions() // export actions
+	self.init_actions() // export actions
 	self.init_presets()
 	self.init_variables()
 	self.checkVariables()
@@ -83,7 +83,7 @@ instance.prototype.updateConfig = function (config) {
 	self.getOutletData();
 	self.setupInterval();
 
-	self.actions() // export actions
+	self.init_actions() // export actions
 	self.init_presets()
 	self.init_variables()
 	self.checkVariables()
@@ -188,7 +188,7 @@ instance.prototype.getOutletStates = function() {
 
 		self.getOutletNames();
 
-		self.actions() // export actions
+		self.init_actions() // export actions
 		self.init_presets();
 		self.init_variables();
 		self.init_feedbacks();
@@ -281,7 +281,7 @@ instance.prototype.getOutletNames = function() {
 
 		self.processOutletNames(data);
 
-		self.actions() // export actions
+		self.init_actions() // export actions
 		self.init_presets();
 		self.init_variables();
 		self.init_feedbacks();
@@ -298,6 +298,7 @@ instance.prototype.processOutletNames = function (data) {
 
 		for (let i = 0; i < jsonData.length; i++) {
 			self.outlets[i].outletName = jsonData[i];
+			self.CHOICES_OUTLETS[i].label = jsonData[i];
 		}
 	}
 	catch(error) {
@@ -419,7 +420,7 @@ instance.prototype.cycleOutlet = function (outletNumber) {
 	actions.cycleOutlet(this, outletNumber);
 }
 
-instance.prototype.actions = function (system) {
+instance.prototype.init_actions = function (system) {
 	this.setActions(actions.setActions(this));
 }
 
