@@ -61,15 +61,19 @@ instance.prototype.init = function () {
 
 	self.init_outlets(8);
 	self.init_outletdata(8);
+
 	self.getOutletData();
+	self.getOutletNames();
+
 	self.setupInterval();
 
-	self.init_actions() // export actions
-	self.init_presets()
-	self.init_variables()
-	self.checkVariables()
-	self.init_feedbacks()
-	self.checkFeedbacks()
+	self.init_actions();
+	self.init_presets();
+	self.init_feedbacks();
+	self.init_variables();
+
+	self.checkFeedbacks();
+	self.checkVariables();
 };
 
 // Update module after a config change
@@ -80,21 +84,25 @@ instance.prototype.updateConfig = function (config) {
 
 	self.init_outlets(8);
 	self.init_outletdata(8);
+
 	self.getOutletData();
+	self.getOutletNames();
+
 	self.setupInterval();
 
-	self.init_actions() // export actions
-	self.init_presets()
-	self.init_variables()
-	self.checkVariables()
-	self.init_feedbacks()
-	self.checkFeedbacks()
+	self.init_actions();
+	self.init_presets();
+	self.init_feedbacks();
+	self.init_variables();
+
+	self.checkFeedbacks();
+	self.checkVariables();
 };
 
 instance.prototype.init_outlets = function(count) {
 	let self = this;
 
-	let outletCount = count;
+	let outletCount = Number(count);
 
 	if ((outletCount <= 0) || (outletCount === 'NaN')) {
 		outletCount = 8;
@@ -113,7 +121,7 @@ instance.prototype.init_outlets = function(count) {
 instance.prototype.init_outletdata = function(count) {
 	let self = this;
 
-	let outletCount = count;
+	let outletCount = Number(count);
 
 	if ((outletCount <= 0) || (outletCount === 'NaN')) {
 		outletCount = 8;
@@ -185,15 +193,6 @@ instance.prototype.getOutletStates = function() {
 		self.status(self.STATUS_OK);
 
 		self.processOutletStates(data);
-
-		self.getOutletNames();
-
-		self.init_actions() // export actions
-		self.init_presets();
-		self.init_variables();
-		self.init_feedbacks();
-		self.checkVariables();
-		self.checkFeedbacks();
 	});
 };
 
@@ -205,15 +204,20 @@ instance.prototype.processOutletStates = function (data) {
 	try {
 		let jsonData = JSON.parse(data);
 
-		self.outlets = [];
+		if (self.outlets.length !== jsonData.length) {
+			self.init_outlets(jsonData.length);
+			self.init_outletdata(jsonData.length);
 
-		for (let i = 0; i < jsonData.length; i++) {
-			let outletObj = {};
-			outletObj.outletState = jsonData[i] === true ? 'On' : 'Off';
-			self.outlets.push(outletObj);
+			self.init_actions();
+			self.init_presets();
+			self.init_feedbacks();
+			self.init_variables();
 		}
 
-		self.init_outlets(self.outlets.length);
+		for (let i = 0; i < jsonData.length; i++) {
+			let outletState = jsonData[i] === true ? 'On' : 'Off';
+			self.updateOutletState((i+1), outletState);
+		}
 	}
 	catch(error) {
 		self.log('error', `Error parsing data returned for Outlet States: ${error}`);
@@ -236,58 +240,53 @@ instance.prototype.getOutletNames = function() {
 	//save the names into the local data array
 	let self = this;
 
-	let protocol = 'http://';
+	if (self.config.host) {
+		let protocol = 'http://';
 
-	if (self.config.secure) {
-		protocol = 'https://';
-	}
-
-	let url = `${protocol}${self.config.host}/restapi/relay/outlets/all;/name/`;
-
-	let username = self.config.username;
-	let password = self.config.password;
-	
-	let options = {
-		method: 'GET',
-		rejectUnauthorized: false,
-		auth: `${username}:${password}`,
-		headers: {
-			'Accept': 'application/json'
+		if (self.config.secure) {
+			protocol = 'https://';
 		}
-	};
 
-	httpClient.request(url, options, (err, data, res) => {
-		if (err) {
-			self.status(self.STATUS_ERROR);
-			let showSpecific = false;
-			Object.keys(err).forEach(function(key) {
-				if (key === 'code') {
-					if (err[key] === 'ECONNREFUSED') {
-						self.log('error', 'Unable to get Outlet Names. Connection refused. Is this the right IP address?');
-						showSpecific = true;
-					}
-				}
-			});
+		let url = `${protocol}${self.config.host}/restapi/relay/outlets/all;/name/`;
 
-			if (!showSpecific) {
-				self.log('error', err.toString());
+		let username = self.config.username;
+		let password = self.config.password;
+		
+		let options = {
+			method: 'GET',
+			rejectUnauthorized: false,
+			auth: `${username}:${password}`,
+			headers: {
+				'Accept': 'application/json'
 			}
+		};
 
-			self.stopInterval();
+		httpClient.request(url, options, (err, data, res) => {
+			if (err) {
+				self.status(self.STATUS_ERROR);
+				let showSpecific = false;
+				Object.keys(err).forEach(function(key) {
+					if (key === 'code') {
+						if (err[key] === 'ECONNREFUSED') {
+							self.log('error', 'Unable to get Outlet Names. Connection refused. Is this the right IP address?');
+							showSpecific = true;
+						}
+					}
+				});
 
-			return;
-		}
-		self.status(self.STATUS_OK);
+				if (!showSpecific) {
+					self.log('error', err.toString());
+				}
 
-		self.processOutletNames(data);
+				self.stopInterval();
 
-		self.init_actions() // export actions
-		self.init_presets();
-		self.init_variables();
-		self.init_feedbacks();
-		self.checkVariables();
-		self.checkFeedbacks();
-	});
+				return;
+			}
+			self.status(self.STATUS_OK);
+
+			self.processOutletNames(data);
+		});
+	}
 };
 
 instance.prototype.processOutletNames = function (data) {
@@ -295,6 +294,16 @@ instance.prototype.processOutletNames = function (data) {
 	
 	try {
 		let jsonData = JSON.parse(data);
+
+		if (self.outlets.length !== jsonData.length) {
+			self.init_outlets(jsonData.length);
+			self.init_outletdata(jsonData.length);
+
+			self.init_actions();
+			self.init_presets();
+			self.init_feedbacks();
+			self.init_variables();
+		}
 
 		for (let i = 0; i < jsonData.length; i++) {
 			self.outlets[i].outletName = jsonData[i];
@@ -360,7 +369,7 @@ instance.prototype.config_fields = function () {
 			default: 5000
 		}
 	]
-}
+};
 
 instance.prototype.setupInterval = function() {
 	let self = this;
@@ -383,46 +392,33 @@ instance.prototype.stopInterval = function() {
 	}
 };
 
-// ##########################
-// #### Instance Presets ####
-// ##########################
+instance.prototype.init_actions = function (system) {
+	this.setActions(actions.setActions(this));
+};
+
 instance.prototype.init_presets = function () {
 	this.setPresetDefinitions(presets.setPresets(this));
-}
+};
 
-// ############################
-// #### Instance Variables ####
-// ############################
-instance.prototype.init_variables = function () {
-	this.setVariableDefinitions(variables.setVariables(this));
-}
-
-// Setup Initial Values
-instance.prototype.checkVariables = function () {
-	variables.checkVariables(this);
-}
-
-// ############################
-// #### Instance Feedbacks ####
-// ############################
 instance.prototype.init_feedbacks = function (system) {
 	this.setFeedbackDefinitions(feedbacks.setFeedbacks(this));
-}
+};
 
-// ##########################
-// #### Instance Actions ####
-// ##########################
+instance.prototype.init_variables = function () {
+	this.setVariableDefinitions(variables.setVariables(this));
+};
+
+instance.prototype.checkVariables = function () {
+	variables.checkVariables(this);
+};
+
 instance.prototype.controlOutlet = function (outletNumber, state) {
 	actions.controlOutlet(this, outletNumber, state);
-}
+};
 
 instance.prototype.cycleOutlet = function (outletNumber) {
 	actions.cycleOutlet(this, outletNumber);
-}
-
-instance.prototype.init_actions = function (system) {
-	this.setActions(actions.setActions(this));
-}
+};
 
 instance_skel.extendedBy(instance);
 exports = module.exports = instance;
